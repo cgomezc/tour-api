@@ -1,0 +1,216 @@
+# =============================================================================
+# CJTour Simple Rollback Pipeline
+# =============================================================================
+# Basic rollback pipeline using Azure DevOps artifacts
+# =============================================================================
+
+trigger: none
+
+parameters:
+- name: targetEnvironment
+  displayName: 'Environment'
+  type: string
+  default: 'staging'
+  values:
+  - staging
+  - production
+
+- name: buildNumberToRollback
+  displayName: 'Build Number to Rollback To'
+  type: string
+  default: ''
+
+variables:
+  # Basic Configuration
+  artifactName: 'cjtour-artifacts'
+  
+  # Environment paths
+  ${{ if eq(parameters.targetEnvironment, 'production') }}:
+    deploymentPath: 'C:\Deployments\CJTour-Production'
+  ${{ else }}:
+    deploymentPath: 'C:\Deployments\CJTour-Staging'
+
+pool:
+  name: Default
+
+stages:
+- stage: Rollback
+  displayName: 'Simple Rollback'
+  jobs:
+  - job: RollbackJob
+    displayName: 'Rollback to Previous Version'
+    steps:
+    
+    - task: PowerShell@2
+      displayName: 'Show Rollback Info'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "=== ROLLBACK OPERATION ===" -ForegroundColor Yellow
+          Write-Host "Environment: ${{ parameters.targetEnvironment }}" -ForegroundColor White
+          Write-Host "Target Build: ${{ parameters.buildNumberToRollback }}" -ForegroundColor White
+          Write-Host "Deploy Path: $(deploymentPath)" -ForegroundColor White
+          Write-Host "=========================" -ForegroundColor Yellow
+
+    - task: PowerShell@2
+      displayName: 'Find Build to Rollback'
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Get build information
+          $organization = "$(System.TeamFoundationCollectionUri)".Replace("https://dev.azure.com/", "").Replace("/", "")
+          $project = "$(System.TeamProject)"
+          $pipelineId = "$(System.DefinitionId)"
+          
+          # API call to get builds
+          $buildsUrl = "https://dev.azure.com/$organization/$project/_apis/build/builds?definitions=$pipelineId&statusFilter=completed&resultFilter=succeeded&`$top=5&api-version=7.0"
+          
+          $headers = @{
+              'Authorization' = "Bearer $(System.AccessToken)"
+          }
+          
+          $response = Invoke-RestMethod -Uri $buildsUrl -Method Get -Headers $headers
+          
+          # Find the build to rollback to
+          $targetBuild = $null
+          
+          if ("${{ parameters.buildNumberToRollback }}" -ne "") {
+              # Use specific build number
+              $targetBuild = $response.value | Where-Object { $_.buildNumber -eq "${{ parameters.buildNumberToRollback }}" } | Select-Object -First 1
+              Write-Host "Looking for specific build: ${{ parameters.buildNumberToRollback }}"
+          } else {
+              # Use previous successful build (skip current one)
+              $currentBuildId = "$(Build.BuildId)"
+              $targetBuild = $response.value | Where-Object { $_.id -ne $currentBuildId } | Select-Object -First 1
+              Write-Host "Using previous successful build"
+          }
+          
+          if (-not $targetBuild) {
+              Write-Host "? No suitable build found for rollback" -ForegroundColor Red
+              exit 1
+          }
+          
+          Write-Host "? Found build to rollback to: $($targetBuild.buildNumber)" -ForegroundColor Green
+          Write-Host "  Build ID: $($targetBuild.id)"
+          Write-Host "  Date: $($targetBuild.finishTime)"
+          
+          # Set variables for next steps
+          Write-Host "##vso[task.setvariable variable=ROLLBACK_BUILD_ID]$($targetBuild.id)"
+          Write-Host "##vso[task.setvariable variable=ROLLBACK_BUILD_NUMBER]$($targetBuild.buildNumber)"
+
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download Rollback Artifact'
+      inputs:
+        buildType: 'specific'
+        project: '$(System.TeamProject)'
+        definition: '$(System.DefinitionId)'
+        buildVersionToDownload: 'specific'
+        buildId: '$(ROLLBACK_BUILD_ID)'
+        artifactName: '$(artifactName)'
+        targetPath: '$(Agent.TempDirectory)/rollback'
+
+    - task: PowerShell@2
+      displayName: 'Create Backup of Current Version'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $deployPath = "$(deploymentPath)"
+          $backupPath = "${deployPath}_backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+          
+          if (Test-Path $deployPath) {
+              Write-Host "Creating backup..." -ForegroundColor Yellow
+              Copy-Item -Path $deployPath -Destination $backupPath -Recurse -Force
+              Write-Host "? Backup created: $backupPath" -ForegroundColor Green
+          } else {
+              Write-Host "?? No existing deployment found" -ForegroundColor Yellow
+          }
+
+    - task: PowerShell@2
+      displayName: 'Execute Rollback'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $deployPath = "$(deploymentPath)"
+          $artifactPath = "$(Agent.TempDirectory)/rollback"
+          
+          Write-Host "=== EXECUTING ROLLBACK ===" -ForegroundColor Red
+          Write-Host "From: $artifactPath"
+          Write-Host "To: $deployPath"
+          
+          # Stop IIS App Pool (optional)
+          try {
+              $appPoolName = "CJTour${{ parameters.targetEnvironment }}"
+              Import-Module WebAdministration -ErrorAction SilentlyContinue
+              if (Get-IISAppPool -Name $appPoolName -ErrorAction SilentlyContinue) {
+                  Stop-WebAppPool -Name $appPoolName
+                  Write-Host "? Stopped app pool: $appPoolName" -ForegroundColor Green
+              }
+          } catch {
+              Write-Host "?? Could not stop app pool: $($_.Exception.Message)" -ForegroundColor Yellow
+          }
+          
+          # Clear current deployment
+          if (Test-Path $deployPath) {
+              Remove-Item -Path "$deployPath\*" -Recurse -Force -ErrorAction SilentlyContinue
+              Write-Host "? Cleared current deployment" -ForegroundColor Green
+          } else {
+              New-Item -ItemType Directory -Path $deployPath -Force | Out-Null
+              Write-Host "? Created deployment directory" -ForegroundColor Green
+          }
+          
+          # Deploy rollback version
+          Copy-Item -Path "$artifactPath\*" -Destination $deployPath -Recurse -Force
+          Write-Host "? Rollback completed" -ForegroundColor Green
+          
+          # Start IIS App Pool (optional)
+          try {
+              if (Get-IISAppPool -Name $appPoolName -ErrorAction SilentlyContinue) {
+                  Start-WebAppPool -Name $appPoolName
+                  Write-Host "? Started app pool: $appPoolName" -ForegroundColor Green
+              }
+          } catch {
+              Write-Host "?? Could not start app pool: $($_.Exception.Message)" -ForegroundColor Yellow
+          }
+
+    - task: PowerShell@2
+      displayName: 'Verify Rollback'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $deployPath = "$(deploymentPath)"
+          
+          Write-Host "=== ROLLBACK VERIFICATION ===" -ForegroundColor Cyan
+          
+          if (Test-Path $deployPath) {
+              $files = Get-ChildItem -Path $deployPath -Recurse
+              Write-Host "? Files deployed: $($files.Count)" -ForegroundColor Green
+              
+              # Check essential files
+              $essentialFiles = @("CJTour.dll", "appsettings.json")
+              foreach ($file in $essentialFiles) {
+                  if (Get-ChildItem -Path $deployPath -Name $file -Recurse) {
+                      Write-Host "? Found: $file" -ForegroundColor Green
+                  } else {
+                      Write-Host "?? Missing: $file" -ForegroundColor Yellow
+                  }
+              }
+              
+              Write-Host "? ROLLBACK COMPLETED SUCCESSFULLY" -ForegroundColor Green
+              Write-Host "Rolled back to build: $(ROLLBACK_BUILD_NUMBER)" -ForegroundColor White
+              
+          } else {
+              Write-Host "? Rollback verification failed" -ForegroundColor Red
+              exit 1
+          }
+
+    - task: PowerShell@2
+      displayName: 'Cleanup'
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Clean temporary files
+          $tempPath = "$(Agent.TempDirectory)/rollback"
+          if (Test-Path $tempPath) {
+              Remove-Item -Path $tempPath -Recurse -Force -ErrorAction SilentlyContinue
+              Write-Host "? Temporary files cleaned" -ForegroundColor Green
+          }

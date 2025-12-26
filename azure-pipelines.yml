@@ -1,0 +1,348 @@
+# =============================================================================
+# CJTour Azure DevOps Pipeline - Refactored
+# =============================================================================
+# Clean separation between Build and Deployment stages for better maintainability
+# 
+# Features:
+# - Separate Build and Deployment stages
+# - Artifact-based deployment
+# - Environment-specific deployment paths
+# - Improved error handling and logging
+# - Conditional deployment based on branch
+# =============================================================================
+
+trigger:
+  branches:
+    include:
+    - main
+    - develop
+  paths:
+    exclude:
+    - README.md
+    - docs/*
+
+pr:
+  branches:
+    include:
+    - main
+    - develop
+
+variables:
+  # Build Configuration
+  buildConfiguration: 'Release'
+  dotNetVersion: '8.0.x'
+  solution: 'CJTour/CJTour.csproj'
+  buildPlatform: 'Any CPU'
+  
+  # Deployment Configuration
+  baseDeploymentPath: 'C:\Deployments'
+  artifactName: 'cjtour-artifacts'
+  
+  # Environment mapping
+  ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/main') }}:
+    targetEnvironment: 'production'
+    deploymentPath: 'C:\Deployments\CJTour-Production'
+  ${{ elseif eq(variables['Build.SourceBranch'], 'refs/heads/develop') }}:
+    targetEnvironment: 'staging'
+    deploymentPath: 'C:\Deployments\CJTour-Staging'
+  ${{ else }}:
+    targetEnvironment: 'development'
+    deploymentPath: 'C:\Deployments\CJTour-Development'
+
+pool:
+  name: Default
+
+# =============================================================================
+# PIPELINE STAGES
+# =============================================================================
+stages:
+- stage: Build
+  displayName: 'Build Stage'
+  jobs:
+  - job: BuildJob
+    displayName: 'Build CJTour Application'
+    steps:
+    
+    - task: PowerShell@2
+      displayName: 'Display Build Information'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "=== BUILD INFORMATION ===" -ForegroundColor Cyan
+          Write-Host "Repository: $(Build.Repository.Name)" -ForegroundColor White
+          Write-Host "Branch: $(Build.SourceBranch)" -ForegroundColor White
+          Write-Host "Build ID: $(Build.BuildId)" -ForegroundColor White
+          Write-Host "Build Number: $(Build.BuildNumber)" -ForegroundColor White
+          Write-Host "Target Environment: $(targetEnvironment)" -ForegroundColor Green
+          Write-Host "Is PR: $(Build.Reason)" -ForegroundColor White
+          Write-Host "=========================" -ForegroundColor Cyan
+
+    - task: PowerShell@2
+      displayName: 'Setup .NET Environment'
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Create global.json for .NET 8
+          $globalJsonPath = "$(Build.SourcesDirectory)/global.json"
+          
+          if (-not (Test-Path $globalJsonPath)) {
+              $globalJson = @{
+                  sdk = @{
+                      version = "8.0.x"
+                      rollForward = "latestMajor"
+                  }
+              } | ConvertTo-Json -Depth 3
+              
+              $globalJson | Out-File -FilePath $globalJsonPath -Encoding UTF8
+              Write-Host "✓ global.json created for .NET 8" -ForegroundColor Green
+          } else {
+              Write-Host "✓ global.json already exists" -ForegroundColor Green
+          }
+          
+          # Verify .NET installation
+          try {
+              $dotnetVersion = dotnet --version
+              Write-Host "✓ .NET SDK Version: $dotnetVersion" -ForegroundColor Green
+          } catch {
+              Write-Host "⚠️ .NET SDK not found or not accessible" -ForegroundColor Yellow
+          }
+
+    - task: UseDotNet@2
+      inputs:
+        packageType: 'sdk'
+        version: '9.0.x'
+        installationPath: $(Agent.ToolsDirectory)/dotnet
+        
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore NuGet Packages'
+      inputs:
+        command: 'restore'
+        projects: '$(solution)'
+        arguments: '--verbosity normal'
+        feedsToUse: 'select'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Build Application'
+      inputs:
+        command: 'build'
+        projects: '$(solution)'
+        arguments: '--configuration $(buildConfiguration) --no-restore --verbosity normal'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Publish Application'
+      inputs:
+        command: 'publish'
+        projects: '$(solution)'
+        arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/publish --no-restore --no-build'
+
+    - task: PowerShell@2
+      displayName: 'Create Build Metadata'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $buildInfo = @{
+              BuildId = "$(Build.BuildId)"
+              BuildNumber = "$(Build.BuildNumber)"
+              BuildDate = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+              Configuration = "$(buildConfiguration)"
+              SourceBranch = "$(Build.SourceBranch)"
+              SourceVersion = "$(Build.SourceVersion)"
+              TargetEnvironment = "$(targetEnvironment)"
+              Agent = "$(Agent.Name)"
+          }
+          
+          $buildInfoPath = "$(Build.ArtifactStagingDirectory)/publish/build-info.json"
+          $buildInfo | ConvertTo-Json -Depth 3 | Out-File -FilePath $buildInfoPath -Encoding UTF8
+          
+          Write-Host "✓ Build metadata created: $buildInfoPath" -ForegroundColor Green
+
+    - task: PowerShell@2
+      displayName: 'Validate Build Artifacts'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $publishPath = "$(Build.ArtifactStagingDirectory)/publish"
+          
+          Write-Host "=== BUILD ARTIFACTS VALIDATION ===" -ForegroundColor Cyan
+          
+          if (Test-Path -Path $publishPath) {
+              $files = Get-ChildItem -Path $publishPath -Recurse
+              $fileCount = $files.Count
+              $totalSize = ($files | Measure-Object -Property Length -Sum).Sum / 1MB
+              
+              Write-Host "✓ Publish directory: $publishPath" -ForegroundColor Green
+              Write-Host "✓ Total files: $fileCount" -ForegroundColor Green
+              Write-Host "✓ Total size: $([math]::Round($totalSize, 2)) MB" -ForegroundColor Green
+              
+              # Check for essential files
+              $essentialFiles = @("CJTour.dll", "appsettings.json", "CJTour.deps.json")
+              foreach ($file in $essentialFiles) {
+                  $filePath = Join-Path $publishPath $file
+                  if (Test-Path $filePath) {
+                      Write-Host "✓ Found: $file" -ForegroundColor Green
+                  } else {
+                      Write-Host "⚠️ Missing: $file" -ForegroundColor Yellow
+                  }
+              }
+              
+              Write-Host "✓ Build artifacts validation completed" -ForegroundColor Green
+          } else {
+              Write-Host "❌ Publish directory not found: $publishPath" -ForegroundColor Red
+              exit 1
+          }
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Build Artifacts'
+      inputs:
+        pathToPublish: '$(Build.ArtifactStagingDirectory)/publish'
+        artifactName: '$(artifactName)'
+        publishLocation: 'Container'
+
+- stage: Deploy
+  displayName: 'Deployment Stage'
+  dependsOn: Build
+  condition: and(succeeded(), in(variables['Build.SourceBranch'], 'refs/heads/main', 'refs/heads/develop'))
+  jobs:
+  - deployment: DeploymentJob
+    displayName: 'Deploy to $(targetEnvironment)'
+    environment: '$(targetEnvironment)'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          
+          - task: DownloadBuildArtifacts@1
+            displayName: 'Download Build Artifacts'
+            inputs:
+              buildType: 'current'
+              artifactName: '$(artifactName)'
+              downloadPath: '$(Pipeline.Workspace)'
+
+          - task: PowerShell@2
+            displayName: 'Display Deployment Information'
+            inputs:
+              targetType: 'inline'
+              script: |
+                Write-Host "=== DEPLOYMENT INFORMATION ===" -ForegroundColor Cyan
+                Write-Host "Environment: $(targetEnvironment)" -ForegroundColor Green
+                Write-Host "Target Path: $(deploymentPath)" -ForegroundColor White
+                Write-Host "Artifact: $(artifactName)" -ForegroundColor White
+                Write-Host "Agent: $(Agent.Name)" -ForegroundColor White
+                Write-Host "=============================" -ForegroundColor Cyan
+
+          - task: PowerShell@2
+            displayName: 'Prepare Deployment Directory'
+            inputs:
+              targetType: 'inline'
+              script: |
+                $deployPath = "$(deploymentPath)"
+                $backupPath = "${deployPath}_backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+                
+                Write-Host "Preparing deployment directory..." -ForegroundColor Yellow
+                
+                # Create backup if directory exists and has content
+                if (Test-Path $deployPath) {
+                    $existingFiles = Get-ChildItem -Path $deployPath -Force -ErrorAction SilentlyContinue
+                    if ($existingFiles.Count -gt 0) {
+                        Write-Host "Creating backup: $backupPath" -ForegroundColor Yellow
+                        Copy-Item -Path $deployPath -Destination $backupPath -Recurse -Force
+                        Write-Host "✓ Backup created successfully" -ForegroundColor Green
+                        
+                        # Clean existing deployment
+                        Remove-Item -Path "$deployPath\*" -Recurse -Force -ErrorAction SilentlyContinue
+                        Write-Host "✓ Existing deployment cleaned" -ForegroundColor Green
+                    }
+                } else {
+                    # Create new deployment directory
+                    New-Item -ItemType Directory -Path $deployPath -Force | Out-Null
+                    Write-Host "✓ Deployment directory created: $deployPath" -ForegroundColor Green
+                }
+
+          - task: PowerShell@2
+            displayName: 'Deploy Application Files'
+            inputs:
+              targetType: 'inline'
+              script: |
+                $sourcePath = "$(Pipeline.Workspace)\$(artifactName)"
+                $deployPath = "$(deploymentPath)"
+                
+                Write-Host "=== DEPLOYMENT EXECUTION ===" -ForegroundColor Cyan
+                Write-Host "Source: $sourcePath" -ForegroundColor White
+                Write-Host "Target: $deployPath" -ForegroundColor White
+                
+                if (Test-Path -Path $sourcePath) {
+                    # Copy all files from source to target
+                    Copy-Item -Path "$sourcePath\*" -Destination $deployPath -Recurse -Force
+                    Write-Host "✓ Application files deployed successfully" -ForegroundColor Green
+                    
+                    # Set proper permissions for IIS (if needed)
+                    try {
+                        $acl = Get-Acl $deployPath
+                        $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule("IIS_IUSRS","FullControl","ContainerInherit,ObjectInherit","None","Allow")
+                        $acl.SetAccessRule($accessRule)
+                        Set-Acl $deployPath $acl
+                        Write-Host "✓ IIS permissions configured" -ForegroundColor Green
+                    } catch {
+                        Write-Host "⚠️ Could not set IIS permissions: $($_.Exception.Message)" -ForegroundColor Yellow
+                    }
+                    
+                } else {
+                    Write-Host "❌ Source path not found: $sourcePath" -ForegroundColor Red
+                    exit 1
+                }
+
+          - task: PowerShell@2
+            displayName: 'Post-Deployment Validation'
+            inputs:
+              targetType: 'inline'
+              script: |
+                $deployPath = "$(deploymentPath)"
+                
+                Write-Host "=== POST-DEPLOYMENT VALIDATION ===" -ForegroundColor Cyan
+                
+                # Verify deployment
+                if (Test-Path -Path $deployPath) {
+                    $deployedFiles = Get-ChildItem -Path $deployPath -Recurse
+                    $fileCount = $deployedFiles.Count
+                    $totalSize = ($deployedFiles | Measure-Object -Property Length -Sum).Sum / 1MB
+                    
+                    Write-Host "✓ Deployment directory: $deployPath" -ForegroundColor Green
+                    Write-Host "✓ Total files deployed: $fileCount" -ForegroundColor Green
+                    Write-Host "✓ Total size: $([math]::Round($totalSize, 2)) MB" -ForegroundColor Green
+                    
+                    # Check essential files
+                    $essentialFiles = @("CJTour.dll", "appsettings.json", "build-info.json")
+                    foreach ($file in $essentialFiles) {
+                        $filePath = Join-Path $deployPath $file
+                        if (Test-Path $filePath) {
+                            Write-Host "✓ Verified: $file" -ForegroundColor Green
+                        } else {
+                            Write-Host "⚠️ Missing: $file" -ForegroundColor Yellow
+                        }
+                    }
+                    
+                    # Display build info
+                    $buildInfoPath = Join-Path $deployPath "build-info.json"
+                    if (Test-Path $buildInfoPath) {
+                        $buildInfo = Get-Content $buildInfoPath | ConvertFrom-Json
+                        Write-Host "✓ Deployed Build: $($buildInfo.BuildNumber)" -ForegroundColor Green
+                        Write-Host "✓ Build Date: $($buildInfo.BuildDate)" -ForegroundColor Green
+                    }
+                    
+                } else {
+                    Write-Host "❌ Deployment validation failed: Directory not found" -ForegroundColor Red
+                    exit 1
+                }
+
+          - task: PowerShell@2
+            displayName: 'Deployment Summary'
+            inputs:
+              targetType: 'inline'
+              script: |
+                Write-Host "=== DEPLOYMENT COMPLETED SUCCESSFULLY ===" -ForegroundColor Green
+                Write-Host "Environment: $(targetEnvironment)" -ForegroundColor White
+                Write-Host "Application: CJTour .NET 8 Web API" -ForegroundColor White
+                Write-Host "Deployment Path: $(deploymentPath)" -ForegroundColor White
+                Write-Host "Build Number: $(Build.BuildNumber)" -ForegroundColor White
+                Write-Host "Deployed At: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor White
+                Write-Host "=========================================" -ForegroundColor Green

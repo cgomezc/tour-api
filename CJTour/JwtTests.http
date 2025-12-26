@@ -1,0 +1,69 @@
+### Variables
+@baseUrl = https://localhost:7053
+@contentType = application/json
+
+### Health Check
+GET {{baseUrl}}/health
+
+### API Status
+GET {{baseUrl}}/api/status
+
+### Register a new user
+POST {{baseUrl}}/api/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "password": "Test123!",
+  "firstName": "John",
+  "lastName": "Doe",
+  "phoneNumber": "+1234567890",
+  "dateOfBirth": "1990-01-01"
+}
+
+### Login
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "password": "Test123!"
+}
+
+### Get current user (requires authentication)
+# @name login
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "password": "Test123!"
+}
+
+###
+@authToken = {{login.response.body.token}}
+
+### Get current user info
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{authToken}}
+
+### Validate token
+GET {{baseUrl}}/api/auth/validate
+Authorization: Bearer {{authToken}}
+
+### Get all tours (public)
+GET {{baseUrl}}/api/tours
+
+### Get featured tours (public)
+GET {{baseUrl}}/api/tours/featured
+
+### Get user's tours (protected)
+GET {{baseUrl}}/api/tours/my-tours
+Authorization: Bearer {{authToken}}
+
+### Delete a tour (protected) - This should return 401/403 or work if user has permissions
+DELETE {{baseUrl}}/api/tours/1
+Authorization: Bearer {{authToken}}
+
+### Test without authentication (should fail)
+GET {{baseUrl}}/api/tours/my-tours

@@ -1,0 +1,44 @@
+### CJTour Benchmarking System - Tests Básicos
+
+@baseUrl = https://localhost:7001
+
+### 1. Probar el benchmark básico
+GET {{baseUrl}}/api/benchmark/test
+
+### 2. Ver resultados del benchmark
+GET {{baseUrl}}/api/benchmark/results
+
+### 3. Probar TourController con benchmark
+
+#### Obtener todos los tours
+GET {{baseUrl}}/api/tours
+
+#### Obtener tours destacados
+GET {{baseUrl}}/api/tours/featured
+
+#### Obtener tour por ID
+GET {{baseUrl}}/api/tours/1
+
+#### Obtener tour por slug
+GET {{baseUrl}}/api/tours/slug/sample-tour
+
+#### Obtener tours por categoría
+GET {{baseUrl}}/api/tours/category/1
+
+#### Obtener tours por destino
+GET {{baseUrl}}/api/tours/destination/1
+
+#### Verificar si existe tour
+GET {{baseUrl}}/api/tours/exists/1
+
+#### Verificar si existe tour por slug
+GET {{baseUrl}}/api/tours/exists/slug/sample-tour
+
+### 4. Ver resultados después de las pruebas
+GET {{baseUrl}}/api/benchmark/results
+
+### 5. Limpiar resultados
+DELETE {{baseUrl}}/api/benchmark/results
+
+### 6. Verificar que se limpiaron
+GET {{baseUrl}}/api/benchmark/results 
