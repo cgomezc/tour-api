@@ -50,7 +50,7 @@ variables:
     deploymentPath: 'C:\Deployments\CJTour-Development'
 
 pool:
-  name: Default
+  vmImage: ubuntu-latest
 
 # =============================================================================
 # PIPELINE STAGES
