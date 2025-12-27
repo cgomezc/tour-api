@@ -113,6 +113,12 @@ stages:
           } catch {
               Write-Host "⚠️ .NET SDK not found or not accessible" -ForegroundColor Yellow
           }
+
+    - task: UseDotNet@2
+      inputs:
+        packageType: 'sdk'
+        version: '8.0.x'
+        installationPath: $(Agent.ToolsDirectory)/dotnet
         
     - task: DotNetCoreCLI@2
       displayName: 'Restore NuGet Packages'
