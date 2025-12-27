@@ -117,7 +117,7 @@ stages:
       displayName: 'Restore NuGet Packages'
       inputs:
         command: 'restore'
-        projects: '$(solution)'
+        projects: '**/*.sln'
         arguments: '--verbosity normal'
         feedsToUse: 'select'
 
@@ -125,7 +125,7 @@ stages:
       displayName: 'Build Application'
       inputs:
         command: 'build'
-        projects: '$(solution)'
+        projects: '**/*.sln'
         arguments: '--configuration $(buildConfiguration) --no-restore --verbosity normal'
 
     - task: DotNetCoreCLI@2
