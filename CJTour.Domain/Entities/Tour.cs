@@ -29,7 +29,7 @@ public partial class Tour
 
     public List<string>? GalleryImageUrls { get; set; }
 
-    public bool? IsActive { get; set; }
+    public bool IsActive { get; set; }
 
     public bool? IsFeatured { get; set; }
 
@@ -47,13 +47,13 @@ public partial class Tour
 
     public DateTime? StartTime { get; set; }
 
-    public string TourCode { get; set; } = null!;
+    public string? TourCode { get; set; }
 
     public int TourId { get; set; }
 
-    public DateTime UpdatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
 
-    public string UpdatedBy { get; set; } = null!;
+    public string? UpdatedBy { get; set; }
 
     public string? VideoUrl { get; set; }
 

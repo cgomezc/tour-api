@@ -45,7 +45,15 @@ public static class ServiceCollectionExtensions
         {
             options.AddPolicy("LocalDevCors", policy =>
             {
-                policy.WithOrigins("https://localhost:3000", "http://localhost:3000", "https://localhost:7053")
+                policy.WithOrigins(
+                        "https://localhost:3000",
+                        "http://localhost:3000",
+                        "https://localhost:7053",
+                        "http://localhost:5173",
+                        "https://localhost:5173",
+                        "http://localhost:5174",
+                        "https://localhost:5174"
+                      )
                       .AllowAnyHeader()
                       .AllowAnyMethod()
                       .AllowCredentials();

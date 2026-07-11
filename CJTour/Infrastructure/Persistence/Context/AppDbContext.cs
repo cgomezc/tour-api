@@ -753,7 +753,8 @@ public partial class AppDbContext : DbContext
          .HasColumnName("galleryImageUrls");
 
      entity.Property(e => e.IsActive)
-         .HasColumnName("isActive");
+         .HasColumnName("isActive")
+         .IsRequired(); // This column is NOT NULL in the SQL table
 
      entity.Property(e => e.IsFeatured)
          .HasColumnName("isFeatured");
@@ -788,18 +789,15 @@ public partial class AppDbContext : DbContext
 
      entity.Property(e => e.TourCode)
          .HasColumnType("text")
-         .IsRequired()
          .HasColumnName("tourCode");
 
      entity.Property(e => e.UpdatedAt)
          .HasColumnType("timestamp(3)")
          .HasDefaultValueSql("CURRENT_TIMESTAMP")
-         .IsRequired()
          .HasColumnName("updatedAt");
 
      entity.Property(e => e.UpdatedBy)
          .HasColumnType("text")
-         .IsRequired()
          .HasColumnName("updatedBy");
 
      entity.Property(e => e.VideoUrl)

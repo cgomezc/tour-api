@@ -18,8 +18,23 @@ public class TourService : ITourService
 
     public async Task<IEnumerable<TourDto>> GetAllToursAsync(string languageCode = "en-US")
     {
-        var tours = await _tourRepository.GetAllAsync(languageCode);
-        return tours.Select(tour => MapToDto(tour, languageCode));
+        ArgumentException.ThrowIfNullOrWhiteSpace(languageCode, nameof(languageCode));
+
+        try
+        {
+            var tours = await _tourRepository.GetAllAsync(languageCode);
+            return tours.Select(tour => MapToDto(tour, languageCode));
+        }
+        catch (Exception ex) when (ex is not ArgumentException)
+        {
+            throw new InvalidOperationException(
+                $"An error occurred while retrieving tours for language '{languageCode}'.", ex);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"An unexpected error occurred while retrieving tours for language '{languageCode}'.", ex);
+        }
     }
 
     public async Task<TourDto?> GetTourByIdAsync(int tourId, string languageCode = "en-US")
