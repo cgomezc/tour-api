@@ -64,17 +64,17 @@ public class TourRepository : ITourRepository
             .FirstOrDefaultAsync(t => t.Slug == slug && t.IsActive == true);
     }
 
-    public async Task<Tour?> GetByIdWithDetailsAsync(int tourId, string languageCode = "en-US")
+    public async Task<Tour?> GetByIdWithDetailsAsync(int tourId)
     {
         return await _context.Tours
             .Include(t => t.Destination)
-                .ThenInclude(d => d.DestinationTranslations.Where(dt => dt.LanguageCode == languageCode))
+                .ThenInclude(d => d.DestinationTranslations)
             .Include(t => t.Category)
-            .Include(t => t.TourTranslations.Where(tt => tt.LanguageCode == languageCode))
+            .Include(t => t.TourTranslations)
             .Include(t => t.TourHighlights)
-                .ThenInclude(th => th.TourHighlightTranslations.Where(tht => tht.LanguageCode == languageCode))
+                .ThenInclude(th => th.TourHighlightTranslations)
             .Include(t => t.TourPackages.Where(tp => tp.IsActive))
-                .ThenInclude(tp => tp.TourPackageTranslations.Where(tpt => tpt.LanguageCode == languageCode))
+                .ThenInclude(tp => tp.TourPackageTranslations)
             .Include(t => t.LanguageOffereds)
                 .ThenInclude(lo => lo.Language)
             .Include(t => t.TourPricings.Where(tpr => tpr.IsCurrent == true))

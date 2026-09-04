@@ -66,6 +66,19 @@ public static class TourEndpoints
             .Produces(500)
             .AllowAnonymous();
 
+        // PUT /api/tours/{id} - PROTECTED ENDPOINT
+        toursApi.MapPut("/{id:int}", UpdateTourAsync)
+            .WithName("UpdateTour")
+            .WithSummary("Update tour")
+            .WithDescription("Updates a tour and its translations using the tour ID from the route. Accepts a lightweight UpdateTourDto payload.")
+            .Accepts<UpdateTourDto>("application/json")
+            .Produces<TourDto>(200)
+            .Produces(400)
+            .Produces(401)
+            .Produces(404)
+            .Produces(500)
+            .RequireAuthorization();
+
         // DELETE /api/tours/{id} - PROTECTED ENDPOINT
         toursApi.MapDelete("/{id:int}", DeleteTourAsync)
             .WithName("DeleteTour")
@@ -124,7 +137,7 @@ public static class TourEndpoints
                 return Results.Ok(cachedTours);
             }
 
-            var tours = await tourService.GetAllToursAsync(language);
+            var tours = await tourService.GetAllToursAsync(language, TourIncludeOptions.Translations);
             await cacheService.SetAsync(cacheKey, tours, TimeSpan.FromMinutes(10));
             return Results.Ok(tours);
         }
@@ -178,7 +191,7 @@ public static class TourEndpoints
         
         try
         {
-            var tour = await tourService.GetTourByIdAsync(id, language);
+            var tour = await tourService.GetTourByIdAsync(id, language, TourIncludeOptions.Translations);
             if (tour == null)
                 return Results.NotFound(new { message = $"Tour with ID {id} not found" });
 
@@ -279,6 +292,52 @@ public static class TourEndpoints
         finally
         {
             benchmarkService.StopTimer($"GetToursByDestination_{destinationId}");
+        }
+    }
+
+    private static async Task<IResult> UpdateTourAsync(
+        int id,
+        UpdateTourDto updateDto,
+        ITourService tourService,
+        IBenchmarkService benchmarkService,
+        ICacheService cacheService,
+        HttpContext context,
+        string language = "en-US")
+    {
+        benchmarkService.StartTimer($"UpdateTour_{id}");
+
+        try
+        {
+            var userId = context.User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var updatedTour = await tourService.UpdateTourAsync(id, updateDto);
+            if (updatedTour == null)
+                return Results.NotFound(new { message = $"Tour with ID {id} not found" });
+
+            // Invalidate cached tour listings since the tour data changed
+            await cacheService.RemoveAsync($"tours_{language}");
+
+            return Results.Ok(updatedTour);
+        }
+        catch (ArgumentException ex)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return Results.Problem(
+                statusCode: 500,
+                title: "An error occurred while updating the tour",
+                detail: ex.Message
+            );
+        }
+        finally
+        {
+            benchmarkService.StopTimer($"UpdateTour_{id}");
         }
     }
 

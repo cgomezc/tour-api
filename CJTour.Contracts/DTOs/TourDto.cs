@@ -40,6 +40,7 @@ public class TourDto : BaseDto<int>
     // Related data
     public DestinationDto? Destination { get; set; }
     public TourCategoryDto? Category { get; set; }
+    public ICollection<TourTranslationDto> Translations { get; set; } = new List<TourTranslationDto>();
     public ICollection<TourHighlightDto> Highlights { get; set; } = new List<TourHighlightDto>();
     public ICollection<TourPackageDto> Packages { get; set; } = new List<TourPackageDto>();
     public ICollection<LanguageOfferedDto> LanguagesOffered { get; set; } = new List<LanguageOfferedDto>();

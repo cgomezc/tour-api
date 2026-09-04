@@ -7,7 +7,7 @@ public interface ITourRepository
     Task<IEnumerable<Tour>> GetAllAsync(string languageCode = "en-US");
     Task<Tour?> GetByIdAsync(int tourId);
     Task<Tour?> GetBySlugAsync(string slug);
-    Task<Tour?> GetByIdWithDetailsAsync(int tourId, string languageCode = "en-US");
+    Task<Tour?> GetByIdWithDetailsAsync(int tourId);
     Task<IEnumerable<Tour>> GetFeaturedToursAsync(string languageCode = "en-US");
     Task<IEnumerable<Tour>> GetToursByCategoryAsync(int categoryId, string languageCode = "en-US");
     Task<IEnumerable<Tour>> GetToursByDestinationAsync(int destinationId, string languageCode = "en-US");

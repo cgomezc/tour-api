@@ -1,6 +1,6 @@
 ### CJTour Benchmarking System - Tests Básicos
 
-@baseUrl = https://localhost:7001
+@baseUrl = https://api.antoniocardenas.com.mx
 
 ### 1. Probar el benchmark básico
 GET {{baseUrl}}/api/benchmark/test
@@ -17,7 +17,7 @@ GET {{baseUrl}}/api/tours
 GET {{baseUrl}}/api/tours/featured
 
 #### Obtener tour por ID
-GET {{baseUrl}}/api/tours/1
+GET {{baseUrl}}/api/tours/4
 
 #### Obtener tour por slug
 GET {{baseUrl}}/api/tours/slug/sample-tour
