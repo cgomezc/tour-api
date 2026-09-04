@@ -5,13 +5,9 @@ namespace CJTour.Domain.Entities;
 
 public partial class LanguageOffered
 {
-    public int LanguageOfferedId { get; set; }
-
-    public int TourId { get; set; }
+   public int TourId { get; set; }
 
     public int LanguageId { get; set; }
-
-    public bool IsActive { get; set; }
 
     public string? Notes { get; set; }
 
