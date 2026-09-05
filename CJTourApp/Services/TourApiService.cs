@@ -1,3 +1,4 @@
+using CJTour.Contracts.Common;
 using CJTour.Contracts.DTOs;
 using System.Net.Http.Json;
 
@@ -12,7 +13,7 @@ public class TourApiService : ITourApiService
         _httpClient = httpClientFactory.CreateClient("CJTourAPI");
     }
 
-    public async Task<IEnumerable<TourDto>> GetToursAsync(string language = "en-US")
+    public async Task<IEnumerable<TourDto>> GetToursAsync(string language = AppConstants.Culture.DefaultLanguage)
     {
         try
         {
@@ -25,7 +26,7 @@ public class TourApiService : ITourApiService
         }
     }
 
-    public async Task<IEnumerable<TourDto>> GetFeaturedToursAsync(string language = "en-US")
+    public async Task<IEnumerable<TourDto>> GetFeaturedToursAsync(string language = AppConstants.Culture.DefaultLanguage)
     {
         try
         {
@@ -38,7 +39,7 @@ public class TourApiService : ITourApiService
         }
     }
 
-    public async Task<TourDto?> GetTourByIdAsync(int id, string language = "en-US")
+    public async Task<TourDto?> GetTourByIdAsync(int id, string language = AppConstants.Culture.DefaultLanguage)
     {
         try
         {
@@ -50,7 +51,7 @@ public class TourApiService : ITourApiService
         }
     }
 
-    public async Task<TourDto?> GetTourBySlugAsync(string slug, string language = "en-US")
+    public async Task<TourDto?> GetTourBySlugAsync(string slug, string language = AppConstants.Culture.DefaultLanguage)
     {
         try
         {
@@ -62,7 +63,7 @@ public class TourApiService : ITourApiService
         }
     }
 
-    public async Task<IEnumerable<TourDto>> GetToursByCategoryAsync(int categoryId, string language = "en-US")
+    public async Task<IEnumerable<TourDto>> GetToursByCategoryAsync(int categoryId, string language = AppConstants.Culture.DefaultLanguage)
     {
         try
         {
@@ -75,7 +76,7 @@ public class TourApiService : ITourApiService
         }
     }
 
-    public async Task<IEnumerable<TourDto>> GetToursByDestinationAsync(int destinationId, string language = "en-US")
+    public async Task<IEnumerable<TourDto>> GetToursByDestinationAsync(int destinationId, string language = AppConstants.Culture.DefaultLanguage)
     {
         try
         {

@@ -1,8 +1,9 @@
-using System.Data.SqlTypes;
+using CJTour.Contracts.Common;
 using CJTour.Domain.Entities;
 using CJTour.Domain.Interfaces;
 using CJTour.Infrastructure.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
+using System.Data.SqlTypes;
 
 namespace CJTour.Infrastructure.Persistence.Repositories;
 
@@ -15,7 +16,7 @@ public class TourRepository : ITourRepository
         _context = context;
     }
 
-    public async Task<IEnumerable<Tour>> GetAllAsync(string languageCode = "en-US")
+    public async Task<IEnumerable<Tour>> GetAllAsync(string languageCode = AppConstants.Culture.DefaultLanguage)
     {
         try
         {
@@ -81,7 +82,7 @@ public class TourRepository : ITourRepository
             .FirstOrDefaultAsync(t => t.TourId == tourId && t.IsActive == true);
     }
 
-    public async Task<IEnumerable<Tour>> GetFeaturedToursAsync(string languageCode = "en-US")
+    public async Task<IEnumerable<Tour>> GetFeaturedToursAsync(string languageCode = AppConstants.Culture.DefaultLanguage)
     {
         return await _context.Tours
             .Include(t => t.Destination)
@@ -95,7 +96,7 @@ public class TourRepository : ITourRepository
             .ToListAsync();
     }
 
-    public async Task<IEnumerable<Tour>> GetToursByCategoryAsync(int categoryId, string languageCode = "en-US")
+    public async Task<IEnumerable<Tour>> GetToursByCategoryAsync(int categoryId, string languageCode = AppConstants.Culture.DefaultLanguage)
     {
         return await _context.Tours
             .Include(t => t.Destination)
@@ -109,7 +110,7 @@ public class TourRepository : ITourRepository
             .ToListAsync();
     }
 
-    public async Task<IEnumerable<Tour>> GetToursByDestinationAsync(int destinationId, string languageCode = "en-US")
+    public async Task<IEnumerable<Tour>> GetToursByDestinationAsync(int destinationId, string languageCode = AppConstants.Culture.DefaultLanguage)
     {
         return await _context.Tours
             .Include(t => t.Destination)

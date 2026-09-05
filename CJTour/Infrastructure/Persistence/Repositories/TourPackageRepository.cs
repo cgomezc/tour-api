@@ -1,3 +1,4 @@
+using CJTour.Contracts.Common;
 using CJTour.Domain.Entities;
 using CJTour.Domain.Interfaces;
 using CJTour.Infrastructure.Persistence.Context;
@@ -34,7 +35,7 @@ public class TourPackageRepository : ITourPackageRepository
             .FirstOrDefaultAsync(tp => tp.PackageId == packageId && tp.IsActive);
     }
 
-    public async Task<TourPackage?> GetByIdWithDetailsAsync(int packageId, string languageCode = "en-US")
+    public async Task<TourPackage?> GetByIdWithDetailsAsync(int packageId, string languageCode = AppConstants.Culture.DefaultLanguage)
     {
         return await _context.TourPackages
             .Include(tp => tp.Tour)

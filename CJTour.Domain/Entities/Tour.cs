@@ -69,7 +69,7 @@ public partial class Tour
 
     public virtual ICollection<CartItem> CartItems { get; set; } = new List<CartItem>();
 
-    public virtual Tourcategory? Category { get; set; }
+    public virtual TourCategory? Category { get; set; }
 
     public virtual Destination Destination { get; set; } = null!;
 

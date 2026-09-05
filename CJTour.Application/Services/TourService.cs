@@ -2,6 +2,7 @@ using CJTour.Application.Interfaces;
 using CJTour.Domain.Entities;
 using CJTour.Domain.Interfaces;
 using CJTour.Contracts.DTOs;
+using CJTour.Contracts.Common;
 
 namespace CJTour.Application.Services;
 
@@ -16,7 +17,7 @@ public class TourService : ITourService
         _tourPackageRepository = tourPackageRepository;
     }
 
-    public async Task<IEnumerable<TourDto>> GetAllToursAsync(string languageCode = "en-US", TourIncludeOptions include = TourIncludeOptions.None)
+    public async Task<IEnumerable<TourDto>> GetAllToursAsync(string languageCode = AppConstants.Culture.DefaultLanguage, TourIncludeOptions include = TourIncludeOptions.None)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(languageCode, nameof(languageCode));
 
@@ -37,31 +38,31 @@ public class TourService : ITourService
         }
     }
 
-    public async Task<TourDto?> GetTourByIdAsync(int tourId, string languageCode = "en-US", TourIncludeOptions include = TourIncludeOptions.None)
+    public async Task<TourDto?> GetTourByIdAsync(int tourId, string languageCode = AppConstants.Culture.DefaultLanguage, TourIncludeOptions include = TourIncludeOptions.None)
     {
         var tour = await _tourRepository.GetByIdWithDetailsAsync(tourId);
         return tour != null ? MapToDto(tour, languageCode, include) : null;
     }
 
-    public async Task<TourDto?> GetTourBySlugAsync(string slug, string languageCode = "en-US", TourIncludeOptions include = TourIncludeOptions.None)
+    public async Task<TourDto?> GetTourBySlugAsync(string slug, string languageCode = AppConstants.Culture.DefaultLanguage, TourIncludeOptions include = TourIncludeOptions.None)
     {
         var tour = await _tourRepository.GetBySlugAsync(slug);
         return tour != null ? MapToDto(tour, languageCode, include) : null;
     }
 
-    public async Task<IEnumerable<TourDto>> GetFeaturedToursAsync(string languageCode = "en-US", TourIncludeOptions include = TourIncludeOptions.None)
+    public async Task<IEnumerable<TourDto>> GetFeaturedToursAsync(string languageCode = AppConstants.Culture.DefaultLanguage, TourIncludeOptions include = TourIncludeOptions.None)
     {
         var tours = await _tourRepository.GetFeaturedToursAsync(languageCode);
         return tours.Select(tour => MapToDto(tour, languageCode, include));
     }
 
-    public async Task<IEnumerable<TourDto>> GetToursByCategoryAsync(int categoryId, string languageCode = "en-US", TourIncludeOptions include = TourIncludeOptions.None)
+    public async Task<IEnumerable<TourDto>> GetToursByCategoryAsync(int categoryId, string languageCode = AppConstants.Culture.DefaultLanguage, TourIncludeOptions include = TourIncludeOptions.None)
     {
         var tours = await _tourRepository.GetToursByCategoryAsync(categoryId, languageCode);
         return tours.Select(tour => MapToDto(tour, languageCode, include));
     }
 
-    public async Task<IEnumerable<TourDto>> GetToursByDestinationAsync(int destinationId, string languageCode = "en-US", TourIncludeOptions include = TourIncludeOptions.None)
+    public async Task<IEnumerable<TourDto>> GetToursByDestinationAsync(int destinationId, string languageCode = AppConstants.Culture.DefaultLanguage, TourIncludeOptions include = TourIncludeOptions.None)
     {
         var tours = await _tourRepository.GetToursByDestinationAsync(destinationId, languageCode);
         return tours.Select(tour => MapToDto(tour, languageCode, include));
@@ -157,7 +158,7 @@ public class TourService : ITourService
         return await _tourRepository.ExistsBySlugAsync(slug);
     }
 
-    private static TourDto MapToDto(Tour tour, string languageCode = "en-US", TourIncludeOptions include = TourIncludeOptions.None)
+    private static TourDto MapToDto(Tour tour, string languageCode = AppConstants.Culture.DefaultLanguage, TourIncludeOptions include = TourIncludeOptions.None)
     {
         var translation = tour.TourTranslations.FirstOrDefault(t => t.LanguageCode == languageCode);
 

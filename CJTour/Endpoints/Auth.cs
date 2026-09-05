@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace CJTour.Endpoints;
 
-public static class AuthEndpoints
+public static class Auth
 {
     public static WebApplication MapAuthEndpoints(this WebApplication app)
     {

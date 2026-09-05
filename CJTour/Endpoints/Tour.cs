@@ -1,10 +1,11 @@
 using CJTour.Application.Interfaces;
+using CJTour.Contracts.Common;
 using CJTour.Contracts.DTOs;
 using Microsoft.AspNetCore.Authorization;
 
 namespace CJTour.Endpoints;
 
-public static class TourEndpoints
+public static class Tour
 {
     public static WebApplication MapTourEndpoints(this WebApplication app)
     {
@@ -45,15 +46,6 @@ public static class TourEndpoints
             .WithDescription("Retrieves a specific tour by its slug")
             .Produces<TourDto>(200)
             .Produces(404)
-            .Produces(500)
-            .AllowAnonymous();
-
-        // GET /api/tours/category/{categoryId}
-        toursApi.MapGet("/category/{categoryId:int}", GetToursByCategoryAsync)
-            .WithName("GetToursByCategory")
-            .WithSummary("Get tours by category")
-            .WithDescription("Retrieves tours filtered by category ID")
-            .Produces<IEnumerable<TourDto>>(200)
             .Produces(500)
             .AllowAnonymous();
 
@@ -124,7 +116,7 @@ public static class TourEndpoints
         ITourService tourService, 
         IBenchmarkService benchmarkService, 
         ICacheService cacheService, 
-        string language = "en-US")
+        string language = AppConstants.Culture.DefaultLanguage)
     {
         benchmarkService.StartTimer("GetTours");
         
@@ -241,32 +233,7 @@ public static class TourEndpoints
         }
     }
 
-    private static async Task<IResult> GetToursByCategoryAsync(
-        int categoryId, 
-        ITourService tourService, 
-        IBenchmarkService benchmarkService, 
-        string language = "en")
-    {
-        benchmarkService.StartTimer($"GetToursByCategory_{categoryId}");
-        
-        try
-        {
-            var tours = await tourService.GetToursByCategoryAsync(categoryId, language);
-            return Results.Ok(tours);
-        }
-        catch (Exception ex)
-        {
-            return Results.Problem(
-                statusCode: 500,
-                title: "An error occurred while retrieving tours by category",
-                detail: ex.Message
-            );
-        }
-        finally
-        {
-            benchmarkService.StopTimer($"GetToursByCategory_{categoryId}");
-        }
-    }
+    
 
     private static async Task<IResult> GetToursByDestinationAsync(
         int destinationId, 
@@ -302,7 +269,7 @@ public static class TourEndpoints
         IBenchmarkService benchmarkService,
         ICacheService cacheService,
         HttpContext context,
-        string language = "en-US")
+        string language = AppConstants.Culture.DefaultLanguage)
     {
         benchmarkService.StartTimer($"UpdateTour_{id}");
 

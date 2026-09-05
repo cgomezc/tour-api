@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace CJTour.Domain.Entities;
 
-public partial class Tourcategory
+public partial class TourCategory
 {
     public string Name { get; set; } = null!;
 
@@ -17,9 +17,9 @@ public partial class Tourcategory
 
     public DateTime? UpdatedAt { get; set; }
 
-    public virtual ICollection<Tourcategory> InverseParentCategory { get; set; } = new List<Tourcategory>();
+    public virtual ICollection<TourCategory> InverseParentCategory { get; set; } = new List<TourCategory>();
 
-    public virtual Tourcategory? ParentCategory { get; set; }
+    public virtual TourCategory? ParentCategory { get; set; }
 
     public virtual ICollection<Tour> Tours { get; set; } = new List<Tour>();
 }

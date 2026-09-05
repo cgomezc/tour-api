@@ -78,7 +78,7 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<TourTranslation> TourTranslations { get; set; }
 
-    public virtual DbSet<Tourcategory> Tourcategories { get; set; }
+    public virtual DbSet<TourCategory> Tourcategories { get; set; }
 
     public virtual DbSet<Tourdateblock> Tourdateblocks { get; set; }
 
@@ -1113,7 +1113,7 @@ public partial class AppDbContext : DbContext
                 .HasConstraintName("tourTranslations_tourId_fkey");
         });
 
-        modelBuilder.Entity<Tourcategory>(entity =>
+        modelBuilder.Entity<TourCategory>(entity =>
         {
             entity.HasKey(e => e.CategoryId).HasName("tourcategories_pkey");
 
