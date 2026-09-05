@@ -73,6 +73,7 @@ public static class WebApplicationExtensions
         // Map tour endpoints
         app.MapTourEndpoints();
         app.MapTourCategoryEndpoints();
+        app.MapDestinationEndpoints();
 
         // Map auth endpoints
         app.MapAuthEndpoints();

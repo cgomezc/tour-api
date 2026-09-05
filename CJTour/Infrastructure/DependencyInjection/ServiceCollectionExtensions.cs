@@ -15,6 +15,7 @@ public static class ServiceCollectionExtensions
         // Register application services
         services.AddScoped<ITourService, TourService>();
         services.AddScoped<ICategoryService, CategoryService>();
+        services.AddScoped<IDestinationService, DestinationService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddSingleton<IBenchmarkService, BenchmarkService>();
@@ -34,6 +35,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITourPackageRepository, TourPackageRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ITourCategoryRepository, TourCategoryRepository>();
+        services.AddScoped<IDestinationRepository, DestinationRepository>();
 
         // Register validation filter
         services.AddValidationFilter();
