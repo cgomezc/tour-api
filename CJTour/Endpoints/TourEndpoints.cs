@@ -76,8 +76,8 @@ public static class TourEndpoints
             .Produces(400)
             .Produces(401)
             .Produces(404)
-            .Produces(500)
-            .RequireAuthorization();
+            .Produces(500);
+
 
         // DELETE /api/tours/{id} - PROTECTED ENDPOINT
         toursApi.MapDelete("/{id:int}", DeleteTourAsync)
@@ -307,12 +307,7 @@ public static class TourEndpoints
         benchmarkService.StartTimer($"UpdateTour_{id}");
 
         try
-        {
-            var userId = context.User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Results.Unauthorized();
-            }
+        {     
 
             var updatedTour = await tourService.UpdateTourAsync(id, updateDto);
             if (updatedTour == null)

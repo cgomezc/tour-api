@@ -2,6 +2,9 @@ using CJTour.Extensions;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
+
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Configuración básica de OpenTelemetry con versiones estables
