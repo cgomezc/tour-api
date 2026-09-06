@@ -11,6 +11,18 @@ public static class Tour
     {
         var toursApi = app.MapGroup("/api/tours").WithTags("Tours");
 
+        // POST /api/tours - PROTECTED ENDPOINT
+        toursApi.MapPost("/", CreateTourAsync)
+            .WithName("CreateTour")
+            .WithSummary("Create tour")
+            .WithDescription("Creates a new tour and its translations. Requires authentication.")
+            .Accepts<CreateTourDto>("application/json")
+            .Produces<TourDto>(201)
+            .Produces(400)
+            .Produces(401)
+            .Produces(500);
+           // .RequireAuthorization();
+
         // GET /api/tours
         toursApi.MapGet("/", GetToursAsync)
             .WithName("GetTours")
@@ -69,7 +81,7 @@ public static class Tour
             .Produces(401)
             .Produces(404)
             .Produces(500);
-
+        // .RequireAuthorization();
 
         // DELETE /api/tours/{id} - PROTECTED ENDPOINT
         toursApi.MapDelete("/{id:int}", DeleteTourAsync)
@@ -259,6 +271,47 @@ public static class Tour
         finally
         {
             benchmarkService.StopTimer($"GetToursByDestination_{destinationId}");
+        }
+    }
+
+    private static async Task<IResult> CreateTourAsync(
+        CreateTourDto createDto,
+        ITourService tourService,
+        IBenchmarkService benchmarkService,
+        ICacheService cacheService,
+        HttpContext context,
+        string language = AppConstants.Culture.DefaultLanguage)
+    {
+        benchmarkService.StartTimer("CreateTour");
+
+        try
+        {
+            var userId = "gurunator";
+
+
+
+            var createdTour = await tourService.CreateTourAsync(createDto, userId);
+
+            // Invalidate cached tour listings since a new tour was added
+            await cacheService.RemoveAsync($"tours_{language}");
+
+            return Results.Created($"/api/tours/{createdTour.Id}", createdTour);
+        }
+        catch (ArgumentException ex)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return Results.Problem(
+                statusCode: 500,
+                title: "An error occurred while creating the tour",
+                detail: ex.Message
+            );
+        }
+        finally
+        {
+            benchmarkService.StopTimer("CreateTour");
         }
     }
 

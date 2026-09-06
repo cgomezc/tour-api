@@ -68,6 +68,66 @@ public class TourService : ITourService
         return tours.Select(tour => MapToDto(tour, languageCode, include));
     }
 
+    public async Task<TourDto> CreateTourAsync(CreateTourDto createDto, string createdBy)
+    {
+        ArgumentNullException.ThrowIfNull(createDto, nameof(createDto));
+        ArgumentException.ThrowIfNullOrWhiteSpace(createdBy, nameof(createdBy));
+
+        if (createDto.DestinationId <= 0)
+            throw new ArgumentException("DestinationId is required.", nameof(createDto));
+
+        if (string.IsNullOrWhiteSpace(createDto.Slug))
+            throw new ArgumentException("Slug is required.", nameof(createDto));
+
+        if (await _tourRepository.ExistsBySlugAsync(createDto.Slug))
+            throw new ArgumentException($"A tour with slug '{createDto.Slug}' already exists.", nameof(createDto));
+
+        if (createDto.Translations == null || createDto.Translations.Count == 0)
+            throw new ArgumentException("At least one translation is required.", nameof(createDto));
+
+        var tour = new Tour
+        {
+            DestinationId = createDto.DestinationId,
+            Slug = createDto.Slug,
+            DurationHours = createDto.DurationHours,
+            DurationDays = createDto.DurationDays,
+            AvailableDays = createDto.AvailableDays?.ToList(),
+            MinParticipants = createDto.MinParticipants ?? 1,
+            MaxParticipants = createDto.MaxParticipants ?? 1,
+            CurrentAvailability = createDto.CurrentAvailability,
+            MinAge = createDto.MinAge,
+            IsActive = createDto.IsActive ?? true,
+            IsFeatured = createDto.IsFeatured,
+            TourCode = createDto.TourCode,
+            RouteMapUrl = createDto.RouteMapUrl,
+            FeaturedImageUrl = createDto.FeaturedImageUrl,
+            GalleryImageUrls = createDto.GalleryImageUrls?.ToList(),
+            CreatedBy = createdBy,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        if (DateTime.TryParse(createDto.StartTime, out var startTime))
+            tour.StartTime = startTime;
+
+        if (DateTime.TryParse(createDto.EndTime, out var endTime))
+            tour.EndTime = endTime;
+
+        foreach (var translationDto in createDto.Translations)
+        {
+            tour.TourTranslations.Add(new TourTranslation
+            {
+                LanguageCode = translationDto.LanguageCode,
+                Title = translationDto.Title,
+                Subtitle = translationDto.Subtitle,
+                Description = translationDto.Description,
+                DetailedItinerary = translationDto.DetailedItinerary
+            });
+        }
+
+        var createdTour = await _tourRepository.AddAsync(tour);
+        return MapToDto(createdTour, "", TourIncludeOptions.Translations);
+    }
+
     public async Task<TourDto?> UpdateTourAsync(int tourId, UpdateTourDto updateDto)
     {
         ArgumentNullException.ThrowIfNull(updateDto, nameof(updateDto));
@@ -77,6 +137,7 @@ public class TourService : ITourService
             return null;
 
         // Update Tour scalar fields
+        tour.DestinationId = updateDto.DestinationId;
         tour.Slug = updateDto.Slug;
         tour.DurationHours = updateDto.DurationHours;
         tour.DurationDays = updateDto.DurationDays;
