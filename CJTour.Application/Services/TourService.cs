@@ -3,6 +3,7 @@ using CJTour.Domain.Entities;
 using CJTour.Domain.Interfaces;
 using CJTour.Contracts.DTOs;
 using CJTour.Contracts.Common;
+using CJTour.Application.Extensions;
 
 namespace CJTour.Application.Services;
 
@@ -114,6 +115,15 @@ public class TourService : ITourService
 
         foreach (var translationDto in createDto.Translations)
         {
+            if (string.IsNullOrWhiteSpace(translationDto.LanguageCode) ||
+                translationDto.Title is null ||
+                translationDto.Description is null)
+            {
+                throw new ArgumentException(
+                    "Each translation requires LanguageCode, Title, and Description.",
+                    nameof(createDto));
+            }
+
             tour.TourTranslations.Add(new TourTranslation
             {
                 LanguageCode = translationDto.LanguageCode,
@@ -131,62 +141,30 @@ public class TourService : ITourService
     public async Task<TourDto?> UpdateTourAsync(int tourId, UpdateTourDto updateDto)
     {
         ArgumentNullException.ThrowIfNull(updateDto, nameof(updateDto));
-
         var tour = await _tourRepository.GetByIdWithDetailsAsync(tourId);
         if (tour == null)
             return null;
 
-        // Update Tour scalar fields
-        tour.DestinationId = updateDto.DestinationId;
-        tour.Slug = updateDto.Slug;
-        tour.DurationHours = updateDto.DurationHours;
-        tour.DurationDays = updateDto.DurationDays;
+        tour.PatchFrom(updateDto); // reemplaza todos los ifs de campos escalares
 
+        // Casos especiales que no son un simple "copiar valor":
         if (DateTime.TryParse(updateDto.StartTime, out var startTime))
             tour.StartTime = startTime;
-
         if (DateTime.TryParse(updateDto.EndTime, out var endTime))
             tour.EndTime = endTime;
 
-        if (updateDto.AvailableDays != null)
-            tour.AvailableDays = updateDto.AvailableDays.ToList();
-
-        if (updateDto.MinParticipants.HasValue)
-            tour.MinParticipants = updateDto.MinParticipants.Value;
-
-        if (updateDto.MaxParticipants.HasValue)
-            tour.MaxParticipants = updateDto.MaxParticipants.Value;
-
-        tour.CurrentAvailability = updateDto.CurrentAvailability ?? tour.CurrentAvailability;
-        tour.MinAge = updateDto.MinAge ?? tour.MinAge;
-        tour.IsActive = updateDto.IsActive ?? tour.IsActive;
-        tour.IsFeatured = updateDto.IsFeatured ?? tour.IsFeatured;
-        tour.TourCode = updateDto.TourCode ?? tour.TourCode;
-        tour.RouteMapUrl = updateDto.RouteMapUrl ?? tour.RouteMapUrl;
-        tour.FeaturedImageUrl = updateDto.FeaturedImageUrl ?? tour.FeaturedImageUrl;
-
-        if (updateDto.GalleryImageUrls != null)
-            tour.GalleryImageUrls = updateDto.GalleryImageUrls.ToList();
-
         tour.UpdatedAt = DateTime.UtcNow;
 
-        // Upsert TourTranslations by LanguageCode, keyed to this tour's TourId
         if (updateDto.Translations != null)
         {
             foreach (var translationDto in updateDto.Translations)
             {
-                var existingTranslation = tour.TourTranslations
+                var existing = tour.TourTranslations
                     .FirstOrDefault(t => t.LanguageCode == translationDto.LanguageCode);
 
-                if (existingTranslation != null)
-                {
-                    existingTranslation.Title = translationDto.Title;
-                    existingTranslation.Subtitle = translationDto.Subtitle;
-                    existingTranslation.Description = translationDto.Description;
-                    existingTranslation.DetailedItinerary = translationDto.DetailedItinerary;
-                }
+                if (existing != null)
+                    existing.PatchFrom(translationDto);
                 else
-                {
                     tour.TourTranslations.Add(new TourTranslation
                     {
                         TourId = tour.TourId,
@@ -196,12 +174,11 @@ public class TourService : ITourService
                         Description = translationDto.Description,
                         DetailedItinerary = translationDto.DetailedItinerary
                     });
-                }
             }
         }
 
         var updatedTour = await _tourRepository.UpdateAsync(tour);
-        return MapToDto(updatedTour, "",TourIncludeOptions.Translations);
+        return MapToDto(updatedTour, "", TourIncludeOptions.Translations);
     }
 
     public async Task DeleteTourAsync(int tourId)
