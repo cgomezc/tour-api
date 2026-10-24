@@ -28,8 +28,11 @@ public static class ServiceCollectionExtensions
     {
         // Register database context
         services.AddDbContext<AppDbContext>(options =>
-            options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
-
+            options.UseNpgsql(configuration.GetConnectionString("DefaultConnection"), npgsql =>
+    npgsql.EnableRetryOnFailure(
+        maxRetryCount: 3,
+        maxRetryDelay: TimeSpan.FromSeconds(5),
+        errorCodesToAdd: null)));
         // Register repositories
         services.AddScoped<ITourRepository, TourRepository>();
         services.AddScoped<ITourPackageRepository, TourPackageRepository>();

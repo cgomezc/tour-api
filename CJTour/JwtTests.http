@@ -1,12 +1,15 @@
 ### Variables
-@baseUrl = https://localhost:7053
+@baseUrl = https://api.antoniocardenas.com.mx
 @contentType = application/json
 
 ### Health Check
 GET {{baseUrl}}/health
 
-### API Status
-GET {{baseUrl}}/api/status
+### Destinations
+GET {{baseUrl}}/api/destinations?language=en-US
+
+###Tour By ID
+GET {{baseUrl}}/api/tours/3?language=en-US
 
 ### Register a new user
 POST {{baseUrl}}/api/auth/register
