@@ -30,8 +30,8 @@ public static class Tour
             .WithDescription("Retrieves all tours with optional language parameter")
             .Produces<IEnumerable<TourDto>>(200)
             .Produces(500)
-            .AllowAnonymous();
-
+            .AllowAnonymous()
+            .CacheOutput(p => p.Expire(TimeSpan.FromMinutes(2)).Tag("tours"));
         // GET /api/tours/featured
         toursApi.MapGet("/featured", GetFeaturedToursAsync)
             .WithName("GetFeaturedTours")
@@ -49,7 +49,8 @@ public static class Tour
             .Produces<TourDto>(200)
             .Produces(404)
             .Produces(500)
-            .AllowAnonymous();
+            .AllowAnonymous()
+        .CacheOutput(p => p.Expire(TimeSpan.FromMinutes(5)).Tag("tours"));
 
         // GET /api/tours/slug/{slug}
         toursApi.MapGet("/slug/{slug}", GetTourBySlugAsync)

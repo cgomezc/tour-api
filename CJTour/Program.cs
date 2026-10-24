@@ -1,4 +1,5 @@
 using CJTour.Extensions;
+using Microsoft.AspNetCore.Builder;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
@@ -27,7 +28,7 @@ builder.Services.AddOpenTelemetry()
             });
         }
     });
-
+builder.Services.AddOutputCache();
 // Configure application builder with all services
 builder.ConfigureApplicationBuilder();
 
@@ -40,5 +41,5 @@ if (!app.Environment.IsDevelopment())
 
 // Configure application pipeline and endpoints
 app.ConfigureApplication();
-
+app.UseOutputCache();
 app.Run();

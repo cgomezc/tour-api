@@ -17,7 +17,8 @@ public static class Destination
             .WithDescription("Retrieves all destinations filtered by language")
             .Produces<IEnumerable<DestinationDto>>(200)
             .Produces(500)
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .CacheOutput(p => p.Expire(TimeSpan.FromMinutes(3)).Tag("destinations"));
 
         // GET /api/destinations/{id}
         destinationsApi.MapGet("/{id:int}", GetDestinationByIdAsync)
