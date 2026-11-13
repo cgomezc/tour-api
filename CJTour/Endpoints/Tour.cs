@@ -285,9 +285,6 @@ public static class Tour
         try
         {
             var userId = "gurunator";
-
-
-
             var createdTour = await tourService.CreateTourAsync(createDto, userId, language);
 
             // Invalidate every cached tour response (all languages, lists and details)
