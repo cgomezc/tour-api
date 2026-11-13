@@ -15,8 +15,6 @@ public class CreateTourDto
     public int DestinationId { get; set; }
 
     public string Slug { get; set; } = string.Empty;
-    public string? Subtitle { get; set; }
-    public string Description { get; set; } = string.Empty;
     public decimal DurationHours { get; set; }
     public int DurationDays { get; set; }
     public string? StartTime { get; set; }
