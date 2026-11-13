@@ -11,8 +11,8 @@ public interface ITourService
     Task<IEnumerable<TourDto>> GetFeaturedToursAsync(string languageCode = AppConstants.Culture.DefaultLanguage, TourIncludeOptions include = TourIncludeOptions.None);
     Task<IEnumerable<TourDto>> GetToursByCategoryAsync(int categoryId, string languageCode = AppConstants.Culture.DefaultLanguage, TourIncludeOptions include = TourIncludeOptions.None);
     Task<IEnumerable<TourDto>> GetToursByDestinationAsync(int destinationId, string languageCode = AppConstants.Culture.DefaultLanguage, TourIncludeOptions include = TourIncludeOptions.None);
-    Task<TourDto> CreateTourAsync(CreateTourDto createDto, string createdBy);
-    Task<TourDto?> UpdateTourAsync(int tourId, UpdateTourDto updateDto);
+    Task<TourDto> CreateTourAsync(CreateTourDto createDto, string createdBy, string languageCode = AppConstants.Culture.DefaultLanguage);
+    Task<TourDto?> UpdateTourAsync(int tourId, UpdateTourDto updateDto, string languageCode = AppConstants.Culture.DefaultLanguage);
     Task DeleteTourAsync(int tourId);
     Task<bool> TourExistsAsync(int tourId);
     Task<bool> TourExistsBySlugAsync(string slug);

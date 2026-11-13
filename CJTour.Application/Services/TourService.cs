@@ -3,7 +3,7 @@ using CJTour.Domain.Entities;
 using CJTour.Domain.Interfaces;
 using CJTour.Contracts.DTOs;
 using CJTour.Contracts.Common;
-using CJTour.Application.Extensions;
+using CJTour.Application.Mappings;
 
 namespace CJTour.Application.Services;
 
@@ -69,7 +69,7 @@ public class TourService : ITourService
         return tours.Select(tour => MapToDto(tour, languageCode, include));
     }
 
-    public async Task<TourDto> CreateTourAsync(CreateTourDto createDto, string createdBy)
+    public async Task<TourDto> CreateTourAsync(CreateTourDto createDto, string createdBy, string languageCode = AppConstants.Culture.DefaultLanguage)
     {
         ArgumentNullException.ThrowIfNull(createDto, nameof(createDto));
         ArgumentException.ThrowIfNullOrWhiteSpace(createdBy, nameof(createdBy));
@@ -107,78 +107,65 @@ public class TourService : ITourService
             CreatedAt = DateTime.UtcNow
         };
 
-        if (DateTime.TryParse(createDto.StartTime, out var startTime))
+        if (TourUpdateMapper.TryParseDateTime(createDto.StartTime, out var startTime))
             tour.StartTime = startTime;
 
-        if (DateTime.TryParse(createDto.EndTime, out var endTime))
+        if (TourUpdateMapper.TryParseDateTime(createDto.EndTime, out var endTime))
             tour.EndTime = endTime;
 
         foreach (var translationDto in createDto.Translations)
-        {
-            if (string.IsNullOrWhiteSpace(translationDto.LanguageCode) ||
-                translationDto.Title is null ||
-                translationDto.Description is null)
-            {
-                throw new ArgumentException(
-                    "Each translation requires LanguageCode, Title, and Description.",
-                    nameof(createDto));
-            }
-
-            tour.TourTranslations.Add(new TourTranslation
-            {
-                LanguageCode = translationDto.LanguageCode,
-                Title = translationDto.Title,
-                Subtitle = translationDto.Subtitle,
-                Description = translationDto.Description,
-                DetailedItinerary = translationDto.DetailedItinerary
-            });
-        }
+            tour.TourTranslations.Add(translationDto.ToEntity());
 
         var createdTour = await _tourRepository.AddAsync(tour);
-        return MapToDto(createdTour, "", TourIncludeOptions.Translations);
+        return MapToDto(createdTour, languageCode, TourIncludeOptions.Translations);
     }
 
-    public async Task<TourDto?> UpdateTourAsync(int tourId, UpdateTourDto updateDto)
+    public async Task<TourDto?> UpdateTourAsync(int tourId, UpdateTourDto updateDto, string languageCode = AppConstants.Culture.DefaultLanguage)
     {
         ArgumentNullException.ThrowIfNull(updateDto, nameof(updateDto));
-        var tour = await _tourRepository.GetByIdWithDetailsAsync(tourId);
+
+        var tour = await _tourRepository.GetForUpdateAsync(tourId);
         if (tour == null)
             return null;
 
-        tour.PatchFrom(updateDto); // reemplaza todos los ifs de campos escalares
+        if (updateDto.DestinationId is <= 0)
+            throw new ArgumentException("DestinationId must be greater than zero.", nameof(updateDto));
 
-        // Casos especiales que no son un simple "copiar valor":
-        if (DateTime.TryParse(updateDto.StartTime, out var startTime))
-            tour.StartTime = startTime;
-        if (DateTime.TryParse(updateDto.EndTime, out var endTime))
-            tour.EndTime = endTime;
+        if (updateDto.Slug is not null)
+        {
+            if (string.IsNullOrWhiteSpace(updateDto.Slug))
+                throw new ArgumentException("Slug cannot be empty.", nameof(updateDto));
 
+            if (updateDto.Slug != tour.Slug && await _tourRepository.ExistsBySlugAsync(updateDto.Slug, tourId))
+                throw new ArgumentException($"A tour with slug '{updateDto.Slug}' already exists.", nameof(updateDto));
+        }
+
+        updateDto.ApplyTo(tour);
         tour.UpdatedAt = DateTime.UtcNow;
 
         if (updateDto.Translations != null)
         {
             foreach (var translationDto in updateDto.Translations)
             {
-                var existing = tour.TourTranslations
-                    .FirstOrDefault(t => t.LanguageCode == translationDto.LanguageCode);
+                if (string.IsNullOrWhiteSpace(translationDto.LanguageCode))
+                    throw new ArgumentException("Each translation requires a LanguageCode.", nameof(updateDto));
+
+                var existing = tour.TourTranslations.FirstOrDefault(t =>
+                    string.Equals(t.LanguageCode, translationDto.LanguageCode, StringComparison.OrdinalIgnoreCase));
 
                 if (existing != null)
-                    existing.PatchFrom(translationDto);
+                    translationDto.ApplyTo(existing);
                 else
-                    tour.TourTranslations.Add(new TourTranslation
-                    {
-                        TourId = tour.TourId,
-                        LanguageCode = translationDto.LanguageCode,
-                        Title = translationDto.Title,
-                        Subtitle = translationDto.Subtitle,
-                        Description = translationDto.Description,
-                        DetailedItinerary = translationDto.DetailedItinerary
-                    });
+                    tour.TourTranslations.Add(translationDto.ToEntity());
             }
         }
 
-        var updatedTour = await _tourRepository.UpdateAsync(tour);
-        return MapToDto(updatedTour, "", TourIncludeOptions.Translations);
+        await _tourRepository.SaveChangesAsync();
+
+        // Reload with full details for the response; fall back to the tracked entity
+        // if the tour is no longer returned (e.g. it was just deactivated).
+        return await GetTourByIdAsync(tourId, languageCode, TourIncludeOptions.Translations)
+               ?? MapToDto(tour, languageCode, TourIncludeOptions.Translations);
     }
 
     public async Task DeleteTourAsync(int tourId)

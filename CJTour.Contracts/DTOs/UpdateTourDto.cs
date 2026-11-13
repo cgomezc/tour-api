@@ -11,8 +11,13 @@ public class UpdateTourDto
 {
     public int? DestinationId { get; set; }
     public string? Slug { get; set; }
+    /// <summary>Not persisted: Tour has no Subtitle column. Send it inside <see cref="Translations"/> instead.</summary>
+    [Obsolete("Ignored by the API. Send Subtitle inside Translations[].")]
     public string? Subtitle { get; set; }
-    public string Description { get; set; } = string.Empty;
+
+    /// <summary>Not persisted: Tour has no Description column. Send it inside <see cref="Translations"/> instead.</summary>
+    [Obsolete("Ignored by the API. Send Description inside Translations[].")]
+    public string? Description { get; set; }
     public decimal? DurationHours { get; set; }
     public int? DurationDays { get; set; }
     public string? StartTime { get; set; }

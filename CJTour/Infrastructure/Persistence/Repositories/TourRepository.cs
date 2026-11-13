@@ -131,11 +131,17 @@ public class TourRepository : ITourRepository
         return tour;
     }
 
-    public async Task<Tour> UpdateAsync(Tour tour)
+    public async Task<Tour?> GetForUpdateAsync(int tourId)
     {
-        _context.Tours.Update(tour);
+        return await _context.Tours
+            .Include(t => t.TourTranslations)
+            .FirstOrDefaultAsync(t => t.TourId == tourId && t.IsActive == true);
+    }
+
+    public async Task SaveChangesAsync()
+    {
+        // Entities are tracked, so EF only issues UPDATE/INSERT for what actually changed.
         await _context.SaveChangesAsync();
-        return tour;
     }
 
     public async Task DeleteAsync(int tourId)
@@ -156,5 +162,11 @@ public class TourRepository : ITourRepository
     public async Task<bool> ExistsBySlugAsync(string slug)
     {
         return await _context.Tours.AnyAsync(t => t.Slug == slug && t.IsActive == true);
+    }
+
+    public async Task<bool> ExistsBySlugAsync(string slug, int excludeTourId)
+    {
+        // The unique index on slug covers inactive tours too, so don't filter by IsActive here.
+        return await _context.Tours.AnyAsync(t => t.Slug == slug && t.TourId != excludeTourId);
     }
 }

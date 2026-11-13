@@ -2,11 +2,15 @@ using CJTour.Application.Interfaces;
 using CJTour.Contracts.Common;
 using CJTour.Contracts.DTOs;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.OutputCaching;
 
 namespace CJTour.Endpoints;
 
 public static class Tour
 {
+    /// <summary>Output-cache tag shared by all cached tour GET endpoints; evict it after any write.</summary>
+    private const string ToursCacheTag = "tours";
+
     public static WebApplication MapTourEndpoints(this WebApplication app)
     {
         var toursApi = app.MapGroup("/api/tours").WithTags("Tours");
@@ -31,7 +35,7 @@ public static class Tour
             .Produces<IEnumerable<TourDto>>(200)
             .Produces(500)
             .AllowAnonymous()
-            .CacheOutput(p => p.Expire(TimeSpan.FromMinutes(2)).Tag("tours"));
+            .CacheOutput(p => p.Expire(TimeSpan.FromMinutes(2)).Tag(ToursCacheTag));
         // GET /api/tours/featured
         toursApi.MapGet("/featured", GetFeaturedToursAsync)
             .WithName("GetFeaturedTours")
@@ -50,7 +54,7 @@ public static class Tour
             .Produces(404)
             .Produces(500)
             .AllowAnonymous()
-        .CacheOutput(p => p.Expire(TimeSpan.FromMinutes(5)).Tag("tours"));
+        .CacheOutput(p => p.Expire(TimeSpan.FromMinutes(5)).Tag(ToursCacheTag));
 
         // GET /api/tours/slug/{slug}
         toursApi.MapGet("/slug/{slug}", GetTourBySlugAsync)
@@ -128,22 +132,14 @@ public static class Tour
     private static async Task<IResult> GetToursAsync(
         ITourService tourService, 
         IBenchmarkService benchmarkService, 
-        ICacheService cacheService, 
         string language = AppConstants.Culture.DefaultLanguage)
     {
         benchmarkService.StartTimer("GetTours");
         
         try
         {
-            var cacheKey = $"tours_{language}";
-            var cachedTours = await cacheService.GetAsync<IEnumerable<TourDto>>(cacheKey);
-            if (cachedTours != null)
-            {
-                return Results.Ok(cachedTours);
-            }
-
+            // Caching is handled by the output cache (tag "tours"), which is evicted on every write.
             var tours = await tourService.GetAllToursAsync(language, TourIncludeOptions.Translations);
-            await cacheService.SetAsync(cacheKey, tours, TimeSpan.FromMinutes(10));
             return Results.Ok(tours);
         }
         catch (Exception ex)
@@ -279,8 +275,9 @@ public static class Tour
         CreateTourDto createDto,
         ITourService tourService,
         IBenchmarkService benchmarkService,
-        ICacheService cacheService,
+        IOutputCacheStore outputCache,
         HttpContext context,
+        CancellationToken ct,
         string language = AppConstants.Culture.DefaultLanguage)
     {
         benchmarkService.StartTimer("CreateTour");
@@ -291,10 +288,10 @@ public static class Tour
 
 
 
-            var createdTour = await tourService.CreateTourAsync(createDto, userId);
+            var createdTour = await tourService.CreateTourAsync(createDto, userId, language);
 
-            // Invalidate cached tour listings since a new tour was added
-            await cacheService.RemoveAsync($"tours_{language}");
+            // Invalidate every cached tour response (all languages, lists and details)
+            await outputCache.EvictByTagAsync(ToursCacheTag, ct);
 
             return Results.Created($"/api/tours/{createdTour.Id}", createdTour);
         }
@@ -321,8 +318,8 @@ public static class Tour
         UpdateTourDto updateDto,
         ITourService tourService,
         IBenchmarkService benchmarkService,
-        ICacheService cacheService,
-        HttpContext context,
+        IOutputCacheStore outputCache,
+        CancellationToken ct,
         string language = AppConstants.Culture.DefaultLanguage)
     {
         benchmarkService.StartTimer($"UpdateTour_{id}");
@@ -330,12 +327,12 @@ public static class Tour
         try
         {     
 
-            var updatedTour = await tourService.UpdateTourAsync(id, updateDto);
+            var updatedTour = await tourService.UpdateTourAsync(id, updateDto, language);
             if (updatedTour == null)
                 return Results.NotFound(new { message = $"Tour with ID {id} not found" });
 
-            // Invalidate cached tour listings since the tour data changed
-            await cacheService.RemoveAsync($"tours_{language}");
+            // Invalidate every cached tour response (all languages, lists and details)
+            await outputCache.EvictByTagAsync(ToursCacheTag, ct);
 
             return Results.Ok(updatedTour);
         }
@@ -361,7 +358,9 @@ public static class Tour
         int id, 
         ITourService tourService, 
         IBenchmarkService benchmarkService,
-        HttpContext context)
+        IOutputCacheStore outputCache,
+        HttpContext context,
+        CancellationToken ct)
     {
         benchmarkService.StartTimer($"DeleteTour_{id}");
         
@@ -375,6 +374,7 @@ public static class Tour
             }
 
             await tourService.DeleteTourAsync(id);
+            await outputCache.EvictByTagAsync(ToursCacheTag, ct);
             return Results.NoContent();
         }
         catch (Exception ex)
